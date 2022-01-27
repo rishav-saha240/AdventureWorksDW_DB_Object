@@ -113,6 +113,12 @@ CREATE TABLE [erp].[ProductCategory](
 	[SSISTrackId] [int] NULL
 )
 
+CREATE TABLE [erp].[ProductSubCategory](
+	[ProductSubcategoryID] [int] NULL,
+	[ProductCategoryID] [int] NULL,
+	[Name] [nvarchar](50) NULL
+)
+
 CREATE TABLE [erp].[SalesHeader](
 	[SalesOrderID] [int] NULL,
 	[rowguid] [uniqueidentifier] NULL,
@@ -260,4 +266,105 @@ AS (
 	LEFT JOIN [erp].[Person] P ON E.[BusinessEntityID] = P.[BusinessEntityID]
 	LEFT JOIN [hr].[EmployeeDepartmentHistory] D ON E.[BusinessEntityID] = D.[BusinessEntityID]
 )
+GO
+
+CREATE VIEW [dbo].[Stg_vw_Erp_Fact_InternetSales]
+AS (
+	SELECT
+		H.[SalesOrderID],
+		ROW_NUMBER() OVER (PARTITION BY H.[SalesOrderID] ORDER BY H.[ModifiedDate]) AS [SalesLineNumber],
+		P.[ProductNumber],
+		CAST(H.[OrderDate] AS DATE) AS [OrderDate],
+		CAST(H.[DueDate] AS DATE) AS [DueDate],
+		CAST(H.[ShipDate] AS DATE) AS [ShipDate],
+		H.[CustomerID],
+		H.[TerritoryID],
+		N'USD' AS [Currency],
+		NULL AS [RevisionNumber],
+		O.[OrderQty],
+		O.[UnitPrice],
+		O.[UnitPriceDiscount],
+		O.[LineTotal],
+		0 AS [TaxAmt]
+	FROM [erp].[SalesHeader] H
+	LEFT JOIN [erp].[SalesOrderDetail] O ON H.[SalesOrderID] = O.[SalesOrderID]
+	LEFT JOIN [erp].[Product] P ON O.[ProductID] = P.[ProductID]
+	WHERE H.[OnlineOrderFlag] = 1
+)
+GO
+
+CREATE VIEW [dbo].[Stg_vw_Erp_Fact_ResellerSales]
+AS (
+	SELECT
+		H.[SalesOrderID],
+		ROW_NUMBER() OVER (PARTITION BY H.[SalesOrderID] ORDER BY H.[ModifiedDate]) AS [SalesLineNumber],
+		P.[ProductNumber],
+		CAST(H.[OrderDate] AS DATE) AS [OrderDate],
+		CAST(H.[DueDate] AS DATE) AS [DueDate],
+		CAST(H.[ShipDate] AS DATE) AS [ShipDate],
+		CAST(C.[StoreID] AS NVARCHAR(15)) AS [ResellerID],
+		H.[TerritoryID],
+		E.[NationalIDNumber],
+		N'USD' AS [Currency],
+		NULL AS [RevisionNumber],
+		O.[OrderQty],
+		O.[UnitPrice],
+		O.[UnitPriceDiscount],
+		O.[LineTotal],
+		0 AS [TaxAmt]
+	FROM [erp].[SalesHeader] H
+	LEFT JOIN [erp].[SalesOrderDetail] O ON H.[SalesOrderID] = O.[SalesOrderID]
+	LEFT JOIN [erp].[Product] P ON O.[ProductID] = P.[ProductID]
+	LEFT JOIN [erp].[Customer] C ON H.[CustomerID] = C.[CustomerID]
+	LEFT JOIN [hr].[Employee] E ON E.[BusinessEntityID] = H.[SalesPersonID]
+	WHERE H.[OnlineOrderFlag] = 0
+)
+GO
+
+CREATE VIEW [dbo].[Stg_vw_Erp_Product]
+AS (
+	SELECT
+		P.[ProductNumber],
+		P.[Name],
+		P.[StandardCost],
+		P.[Color],
+		P.[Size],
+		NULL AS [SizeRange],
+		P.[Name] AS [EnglishDescription],
+		SC.[Name] AS [ProductSubCategoryCode],
+		C.[Name] AS [ProductCategory]
+	FROM [erp].[Product] P
+	LEFT JOIN [erp].[ProductSubCategory] SC ON P.[ProductSubCategoryID] = SC.[ProductSubCategoryID]
+	LEFT JOIN [erp].[ProductCategory] C ON SC.[ProductCategoryID] =  C.[ProductCategoryID]
+)
+GO
+
+CREATE VIEW [dbo].[Stg_vw_Erp_Reseller]
+AS (
+	SELECT
+		DISTINCT
+			C.[StoreID],
+			S.[Name] AS [ResellerName],
+			NULL AS [YearOpened],
+			0 AS [NumberOfEmployees],
+			NULL AS [BusinessType]
+	FROM [erp].[Customer] C
+	LEFT JOIN [erp].[Store] S ON C.[StoreID] = S.[BusinessEntityID]
+	WHERE C.[PersonID] is NULL
+)
+GO
+
+ALTER TABLE [erp].[BusinessEntity] ADD  DEFAULT (getdate()) FOR [Created_Dt]
+GO
+ALTER TABLE [erp].[Currency] ADD  DEFAULT (getdate()) FOR [Created_Dt]
+GO
+ALTER TABLE [erp].[Person] ADD  DEFAULT (getdate()) FOR [Created_Dt]
+GO
+ALTER TABLE [erp].[PersonAddress] ADD  DEFAULT (getdate()) FOR [Created_Dt]
+GO
+ALTER TABLE [erp].[Product] ADD  DEFAULT (getdate()) FOR [Created_Dt]
+GO
+ALTER TABLE [hr].[Employee] ADD  DEFAULT (getdate()) FOR [Created_Dt]
+GO
+ALTER TABLE [hr].[EmployeeDepartmentHistory] ADD  DEFAULT (getdate()) FOR [Created_Dt]
 GO
