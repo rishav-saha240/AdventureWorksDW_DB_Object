@@ -1,5 +1,15 @@
+USE [master]
+GO
+
+CREATE DATABASE [AdventureWorks_Warehouse]
+GO
+
 USE [AdventureWorks_Warehouse]
 GO
+
+-- ================================================
+-- Dimension tables
+-- ================================================
 
 CREATE TABLE [dbo].[DimCurrency](
 	[CurrencyKey] [int] IDENTITY(1,1) NOT NULL,
@@ -143,6 +153,10 @@ CREATE TABLE [dbo].[DimSalesTerritory](
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
 
+-- ================================================
+-- Fact tables
+-- ================================================
+
 CREATE TABLE [dbo].[FactInternetSales](
 	[ProductKey] [int] NOT NULL,
 	[OrderDateKey] [int] NOT NULL,
@@ -194,6 +208,10 @@ CREATE TABLE [dbo].[FactResellerSales](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
+
+-- ================================================
+-- Foreign keys to Fact tables
+-- ================================================
 
 ALTER TABLE [dbo].[FactInternetSales]  WITH CHECK ADD  CONSTRAINT [FK_FactInternetSales_DimCurrency] FOREIGN KEY([CurrencyKey])
 REFERENCES [dbo].[DimCurrency] ([CurrencyKey])
